@@ -2,6 +2,7 @@ package torrstor
 
 import (
 	"io"
+	"math"
 	"sync"
 	"time"
 
@@ -137,7 +138,29 @@ func (r *Reader) getReaderRAHPiece() int {
 }
 
 func (r *Reader) getPieceNum(offset int64) int {
-	return int((offset + r.file.Offset()) / r.cache.pieceLength)
+	return getPieceIndex(offset, r.file.Offset(), r.cache)
+}
+
+func getPieceIndex(offset, fileOffset int64, cache *Cache) int {
+	if cache == nil || cache.pieceLength <= 0 || cache.pieceCount <= 0 {
+		return 0
+	}
+
+	if fileOffset > 0 && offset > math.MaxInt64-fileOffset {
+		return cache.pieceCount - 1
+	}
+	if fileOffset < 0 && offset < math.MinInt64-fileOffset {
+		return 0
+	}
+
+	piece := (offset + fileOffset) / cache.pieceLength
+	if piece < 0 {
+		return 0
+	}
+	if piece >= int64(cache.pieceCount) {
+		return cache.pieceCount - 1
+	}
+	return int(piece)
 }
 
 func (r *Reader) getOffsetRange() (int64, int64) {
